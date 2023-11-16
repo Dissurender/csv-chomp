@@ -1,0 +1,24 @@
+{
+  "name": "csv-chomp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dissurender/csv-chomp.git"
+  },
+  "author": "Rhyn Ogg",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/Dissurender/csv-chomp/issues"
+  },
+  "homepage": "https://github.com/Dissurender/csv-chomp#readme",
+  "dependencies": {
+    "csv-parse": "^5.5.2",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3"
+  }
+}
