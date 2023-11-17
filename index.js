@@ -25,29 +25,32 @@ async function main() {
       file: {
         type: "string",
         short: "f",
+        default: "not",
       },
     },
   });
 
-  if (!file) {
+  if (file === "not") {
     console.error(
       "Incorrect number of arguments.\n" +
         "\nPlease use format: node index.js -f <csv filename>" +
         "\n\nExiting process..."
     );
+
     process.exit(1);
   }
 
-  await initDB(client);
+  const start = Date.now();
 
   const csvData = await processCSV(file);
   const { booksList, authorsList, junctionsList } = separateData(csvData);
 
-  console.log(`\nCount of books read: ${booksList.length}`);
-  console.log(`Count of authors named: ${authorsList.length}`);
-  console.log(`Count of relations made: ${junctionsList.length}`);
-
+  await initDB(client);
   const tableExists = await checkDBTable();
+
+  const end = Date.now();
+
+  console.log(`\n${end - start}ms`);
 
   process.exit(0);
 }
@@ -59,11 +62,12 @@ async function main() {
  * @returns {Promise<Array>} - A promise containing an array of book objects.
  */
 const processCSV = async (filename) => {
-  console.log("Spooling file parser..");
+  console.log("\nSpooling file parser..");
 
   let parser;
   try {
     parser = fs.createReadStream(`${__dirname}/${filename}`).pipe(parse());
+    console.log("Parser charged and ready..");
   } catch (err) {
     console.error("Error reading file:", err);
   }
@@ -91,6 +95,8 @@ const processCSV = async (filename) => {
       resolve(books);
     });
   });
+
+  console.log("Parser firing.");
 
   return records;
 };
@@ -129,7 +135,7 @@ function separateData(data) {
 
   for (const book of data) {
     const current = formatedBook(book);
-    console.log(`pushing book ${current.isbn13} to array`);
+    // console.log(`pushing book ${current.isbn13} to array`);
     booksList.push(book);
 
     const authorsArr = book.authors;
@@ -138,6 +144,10 @@ function separateData(data) {
     authorsList.push(...authors);
     junctionsList.push(...junctions);
   }
+
+  console.log(`\nCount of books read: ${booksList.length}`);
+  console.log(`Count of authors named: ${authorsList.length}`);
+  console.log(`Count of relations made: ${junctionsList.length}\n`);
 
   return { booksList, authorsList, junctionsList };
 }
@@ -174,14 +184,14 @@ function divyAuthors(data, bookISBN13) {
       name: data[j],
     };
     authors.push(author);
-    console.log(`pushing author ${data[j]} to array`);
+    // console.log(`pushing author ${data[j]} to array`);
 
     const junction = {
       book_id: bookISBN13,
       author_id: newID,
     };
     junctions.push(junction);
-    console.log(`pushing junction |${bookISBN13} - ${data[j]}| to array`);
+    // console.log(`pushing junction |${bookISBN13} - ${data[j]}| to array`);
   }
 
   return { authors, junctions };
