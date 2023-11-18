@@ -91,3 +91,4 @@ web_modules/
 
 # csv file
 *.csv
+_git*
