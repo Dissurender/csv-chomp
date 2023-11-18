@@ -3,7 +3,6 @@
 const { parseArgs } = require("node:util");
 const fs = require("fs");
 const { parse } = require("csv-parse");
-const { randomUUID } = require("node:crypto");
 
 require("dotenv").config();
 
@@ -16,7 +15,14 @@ const client = new Client({
   host: "localhost",
 });
 
+client.on("error", (err) => {
+  console.error(err.message);
+});
+
+
 async function main() {
+
+  // TODO: flags for env props/default
   // destructure argv
   const {
     values: { file },
@@ -48,7 +54,13 @@ async function main() {
   await initDB(client);
   const tableExists = await checkDBTable();
 
+  seedDB(booksList, tableType.BOOK, client);
+
   const end = Date.now();
+
+  console.log(`\nCount of books read: ${booksList.length}`);
+  console.log(`Count of authors named: ${authorsList.length}`);
+  console.log(`Count of relations made: ${junctionsList.length}\n`);
 
   console.log(`\n${end - start}ms`);
 
@@ -135,8 +147,8 @@ function separateData(data) {
 
   for (const book of data) {
     const current = formatedBook(book);
-    // console.log(`pushing book ${current.isbn13} to array`);
-    booksList.push(book);
+
+    booksList.push(current);
 
     const authorsArr = book.authors;
     const { authors, junctions } = divyAuthors(authorsArr, book.isbn13);
@@ -144,10 +156,6 @@ function separateData(data) {
     authorsList.push(...authors);
     junctionsList.push(...junctions);
   }
-
-  console.log(`\nCount of books read: ${booksList.length}`);
-  console.log(`Count of authors named: ${authorsList.length}`);
-  console.log(`Count of relations made: ${junctionsList.length}\n`);
 
   return { booksList, authorsList, junctionsList };
 }
@@ -159,17 +167,34 @@ function separateData(data) {
  * @returns {object} - A new book object ready to insert into the database
  */
 function formatedBook(book) {
+  const date = book.published.split("/");
+  const formatDate = new Date(date[2], date[1] - 1, date[0]);
+
   return {
     title: book.title,
-    avgRating: book.avgRating,
+    avgRating: Number.parseFloat(book.avgRating),
     isbn: book.isbn,
-    isbn13: book.isbn13,
+    isbn13: Number.parseInt(book.isbn13),
     language: book.language,
-    pages: book.pages,
-    ratingCount: book.ratingCount,
-    textReviewCount: book.textReviewCount,
-    published: book.published,
+    pages: Number.parseInt(book.pages),
+    ratingCount: Number.parseInt(book.ratingCount),
+    textReviewCount: Number.parseInt(book.textReviewCount),
+    published: formatDate.toLocaleDateString(),
     publisher: book.publisher,
+  };
+}
+
+function formatedAuthor(author, newAuthorID) {
+  return {
+    author_id: newAuthorID,
+    name: author,
+  };
+}
+
+function formatedJunction(author, bookISBN13) {
+  return {
+    author_id: author,
+    book_id: bookISBN13,
   };
 }
 
@@ -177,21 +202,16 @@ function divyAuthors(data, bookISBN13) {
   const authors = new Array();
   const junctions = new Array();
 
-  for (let j = 0; j < data.length; j++) {
-    const newID = randomUUID();
-    const author = {
-      author_id: newID,
-      name: data[j],
-    };
-    authors.push(author);
-    // console.log(`pushing author ${data[j]} to array`);
+  let authorId = 0;
 
-    const junction = {
-      book_id: bookISBN13,
-      author_id: newID,
-    };
+  for (let j = 0; j < data.length; j++) {
+    const newAuthorID = authorId++;
+
+    const author = formatedAuthor(data[j], newAuthorID);
+    authors.push(author);
+
+    const junction = formatedJunction(data[j], bookISBN13);
     junctions.push(junction);
-    // console.log(`pushing junction |${bookISBN13} - ${data[j]}| to array`);
   }
 
   return { authors, junctions };
@@ -227,7 +247,7 @@ async function checkDBTable() {
       title VARCHAR(255) NOT NULL,
       avgRating DECIMAL(3, 2),
       isbn CHAR(10),
-      language CHAR(2),
+      language CHAR(5),
       pages INT NOT NULL,
       ratingCount INT,
       textReviewCount INT,
@@ -268,7 +288,46 @@ async function checkDBTable() {
   return;
 }
 
-// TODO:
-async function seedDB() {}
+const tableType = Object.freeze({
+  BOOK: "books",
+  AUTHOR: "authors",
+  JUNCTION: "book_authors",
+});
+
+/**
+ *
+ * @param {Array<Object>} data
+ * @param {String} type
+ */
+async function seedDB(data, type, dbClient) {
+  data = data.slice(1);
+
+  for (let i = 0; i < data.length; i++) {
+    if (type == "books") {
+      if (typeof data[i].isbn13 !== "number") continue;
+    }
+    // TODO: proper formatting needed
+    const dataFields = Object.keys(data[i]);
+    const dataValues = Object.values(data[i]);
+
+    const query =
+      "INSERT INTO " +
+      type +
+      "(" +
+      dataFields +
+      ") VALUES(" +
+      dataValues +
+      ");";
+
+    console.log(query + "\n");
+
+    try {
+      // const attempt = await dbClient.query(query);
+      // console.log(attempt);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
 
 main();
