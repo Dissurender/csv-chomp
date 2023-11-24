@@ -91,4 +91,6 @@ web_modules/
 
 # csv file
 *.csv
+
+.vscode
 _git*
