@@ -19,9 +19,7 @@ client.on("error", (err) => {
   console.error(err.message);
 });
 
-
 async function main() {
-
   // TODO: flags for env props/default
   // destructure argv
   const {
@@ -63,8 +61,6 @@ async function main() {
   console.log(`Count of relations made: ${junctionsList.length}\n`);
 
   console.log(`\n${end - start}ms`);
-
-  process.exit(0);
 }
 
 /**
@@ -73,7 +69,7 @@ async function main() {
  * @param {string} filename - The name of the CSV file.
  * @returns {Promise<Array>} - A promise containing an array of book objects.
  */
-const processCSV = async (filename) => {
+async function processCSV(filename) {
   console.log("\nSpooling file parser..");
 
   let parser;
@@ -82,6 +78,7 @@ const processCSV = async (filename) => {
     console.log("Parser charged and ready..");
   } catch (err) {
     console.error("Error reading file:", err);
+    process.exit(1);
   }
 
   const records = await new Promise((resolve) => {
@@ -111,7 +108,7 @@ const processCSV = async (filename) => {
   console.log("Parser firing.");
 
   return records;
-};
+}
 
 /**
  * Simply splits a string of authors into an array of individual author names.
@@ -146,7 +143,7 @@ function separateData(data) {
   const junctionsList = [];
 
   for (const book of data) {
-    const current = formatedBook(book);
+    const current = formattedBook(book);
 
     booksList.push(current);
 
@@ -166,7 +163,7 @@ function separateData(data) {
  * @param {object} book - The input book object with various fields.
  * @returns {object} - A new book object ready to insert into the database
  */
-function formatedBook(book) {
+function formattedBook(book) {
   const date = book.published.split("/");
   const formatDate = new Date(date[2], date[1] - 1, date[0]);
 
@@ -184,14 +181,14 @@ function formatedBook(book) {
   };
 }
 
-function formatedAuthor(author, newAuthorID) {
+function formattedAuthor(author, newAuthorID) {
   return {
     author_id: newAuthorID,
     name: author,
   };
 }
 
-function formatedJunction(author, bookISBN13) {
+function formattedJunction(author, bookISBN13) {
   return {
     author_id: author,
     book_id: bookISBN13,
@@ -207,10 +204,10 @@ function divyAuthors(data, bookISBN13) {
   for (let j = 0; j < data.length; j++) {
     const newAuthorID = authorId++;
 
-    const author = formatedAuthor(data[j], newAuthorID);
+    const author = formattedAuthor(data[j], newAuthorID);
     authors.push(author);
 
-    const junction = formatedJunction(data[j], bookISBN13);
+    const junction = formattedJunction(data[j], bookISBN13);
     junctions.push(junction);
   }
 
@@ -288,12 +285,6 @@ async function checkDBTable() {
   return;
 }
 
-const tableType = Object.freeze({
-  BOOK: "books",
-  AUTHOR: "authors",
-  JUNCTION: "book_authors",
-});
-
 /**
  *
  * @param {Array<Object>} data
@@ -310,14 +301,10 @@ async function seedDB(data, type, dbClient) {
     const dataFields = Object.keys(data[i]);
     const dataValues = Object.values(data[i]);
 
-    const query =
-      "INSERT INTO " +
-      type +
-      "(" +
-      dataFields +
-      ") VALUES(" +
-      dataValues +
-      ");";
+    const query = {
+      text: insertQuery.type,
+      values: dataValues,
+    };
 
     console.log(query + "\n");
 
@@ -329,5 +316,18 @@ async function seedDB(data, type, dbClient) {
     }
   }
 }
+
+const insertQuery = Object.freeze({
+  books:
+    "INSERT INTO books ( title, avgRating, isbn, isbn13, language, pages, ratingCount, textReviewCount, published, publisher) VALUES ($1, $2, $3,$4,$5, $6, $7, $8, $9, $10;",
+  authors: "INSERT INTO authors (author_id, name) VALUES ($1, $2);",
+  junctions: "INSERT INTO book_authors (book_id, author_id) VALUES ($1, $2);",
+});
+
+const tableType = Object.freeze({
+  BOOK: "books",
+  AUTHOR: "authors",
+  JUNCTION: "book_authors",
+});
 
 main();
